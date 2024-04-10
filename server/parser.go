@@ -50,7 +50,7 @@ func ParsePositionString(data string) ([]float32, error) {
 	for _, posStr := range posStrs {
 		posFloat, err := strconv.ParseFloat(posStr, 32)
 		if err != nil {
-			return []float32{}, fmt.Errorf("error parsing POS: %s", err.Error())
+			return []float32{}, err
 		}
 		pos = append(pos, float32(posFloat))
 	}
