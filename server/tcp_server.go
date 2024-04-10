@@ -3,21 +3,18 @@ package server
 import (
 	"fmt"
 	"net"
-	"time"
 )
 
 type server struct {
 	listenAddr    string
 	ln            net.Listener
 	quitCh        chan struct{}
-	parser        parser
 	clientManager clientManager
 }
 
 func NewServer(addr string) *server {
 	return &server{
 		listenAddr:    addr,
-		parser:        *NewParser(),
 		clientManager: *NewClientManager(),
 	}
 }
@@ -31,13 +28,8 @@ func (s *server) Start() error {
 	fmt.Println("Server listening on port 42069")
 	s.ln = ln
 
-	// start the parser
-	go s.parser.Start()
-
 	// start accepting connections
 	go s.acceptLoop()
-	go s.processLoop()
-	go s.writeLoop()
 
 	<-s.quitCh
 
@@ -54,19 +46,18 @@ func (s *server) acceptLoop() {
 		// register client
 		clientID, err := s.clientManager.RegisterClient(conn)
 		if err != nil {
-			fmt.Printf("Error registering client:%s", err.Error())
+			fmt.Printf("Error registering client:%s\n", err.Error())
 			continue
 		}
 
 		// start reading data from conn
-		go s.readLoop(clientID)
+		go s.readLoop(clientID, conn)
 	}
 }
 
-func (s *server) readLoop(clientID int) {
+func (s *server) readLoop(clientID int, client net.Conn) {
 	defer s.clientManager.UnregisterClient(clientID)
-	client := s.clientManager.GetClient(clientID)
-	buf := make([]byte, 64)
+	buf := make([]byte, 1024)
 	for {
 		n, err := client.Read(buf)
 		if err != nil {
@@ -78,34 +69,25 @@ func (s *server) readLoop(clientID int) {
 			continue
 		}
 		data := buf[:n]
-		s.parser.messageCh <- data
+		go s.processMessage(clientID, data)
 	}
 }
 
-func (s *server) writeLoop() {
-	ticker := time.NewTicker(100 * time.Millisecond) // Create a ticker with a duration of 0.1 seconds
-	defer ticker.Stop()                              // Stop the ticker when the function exits
-
-	for {
-		select {
-		case <-ticker.C:
-			s.clientManager.SyncClientPos() // Call SyncClientPos() every time the ticker ticks
-		case <-s.quitCh:
-			return // Exit the function if quitCh is closed
+func (s *server) processMessage(clientID int, data []byte) {
+	cmd, err := ParseMessage(clientID, data)
+	if err != nil {
+		fmt.Printf("Error parsing message: %s\n", err.Error())
+		return
+	}
+	switch cmd.cmd {
+	case POSITION:
+		pos, err := ParsePositionString(cmd.data)
+		if err != nil {
+			fmt.Printf("error parsing coordinate strings: %s\n", err.Error())
+			return
 		}
+		s.clientManager.BroadcastClientPos(cmd.clientID, pos)
+	default:
+		fmt.Printf("Received unknown packet from Client %d: %s", clientID, string(data))
 	}
 }
-
-func (s *server) processLoop() {
-	for cmd := range s.parser.cmdCh {
-		if cmd.cmd == POSITION {
-			pos, err := ParseCoorString(cmd.data)	
-			if err != nil {
-				fmt.Println(err.Error())
-				continue
-			}
-			s.clientManager.UpdateClientPos(cmd.clientId, pos)
-		}
-	}
-}
-
