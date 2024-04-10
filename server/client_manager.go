@@ -19,10 +19,6 @@ func NewClientManager() *clientManager {
 	}
 }
 
-func (cm *clientManager) GetClient(clientID int) net.Conn {
-	return cm.clients[clientID]
-}
-
 func (cm *clientManager) sendMessage(clientId int, message string) error {
 	client := cm.clients[clientId]
 	_, err := client.Write([]byte(message))
