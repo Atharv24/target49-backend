@@ -44,8 +44,8 @@ func (cm *clientManager) broadcastMessage (fromClient int, message string) {
 }
 
 func (cm *clientManager) BroadcastClientPos(clientID int, pos []float32) {
-	cm.clientsMu.Lock()
-	defer cm.clientsMu.Unlock()
+	cm.clientsMu.RLock()
+	defer cm.clientsMu.RUnlock()
 	// broadcast
 	message, err := GetPositionString(clientID, pos)
 	if err != nil {
@@ -58,7 +58,7 @@ func (cm *clientManager) BroadcastClientPos(clientID int, pos []float32) {
 func (cm *clientManager) RegisterClient(conn net.Conn) (int, error) {
 	cm.clientsMu.Lock()
 	defer cm.clientsMu.Unlock()
-
+	
 	cm.clientCounter++
 	newClientID := cm.clientCounter
 	cm.clients[newClientID] = conn
