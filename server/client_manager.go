@@ -31,6 +31,8 @@ func (cm *clientManager) sendMessage(clientId int, message string) error {
 }
 
 func (cm *clientManager) broadcastMessage (fromClient int, message string) {
+	cm.clientsMu.RLock()
+	defer cm.clientsMu.RUnlock()
 	for toClient := range cm.clients {
 		if toClient == fromClient {
 			continue
@@ -44,9 +46,6 @@ func (cm *clientManager) broadcastMessage (fromClient int, message string) {
 }
 
 func (cm *clientManager) BroadcastClientPos(clientID int, pos []float32) {
-	cm.clientsMu.RLock()
-	defer cm.clientsMu.RUnlock()
-	// broadcast
 	message, err := GetPositionString(clientID, pos)
 	if err != nil {
 		fmt.Printf("Error creating position string for Client %d: %s\n", clientID, err.Error())
@@ -58,15 +57,15 @@ func (cm *clientManager) BroadcastClientPos(clientID int, pos []float32) {
 func (cm *clientManager) RegisterClient(conn net.Conn) (int, error) {
 	cm.clientsMu.Lock()
 	defer cm.clientsMu.Unlock()
-	
+
 	cm.clientCounter++
 	newClientID := cm.clientCounter
 	cm.clients[newClientID] = conn
 	
 	fmt.Println("Registered new client:", newClientID)
 	
-	cm.initializeExistingClientsForNewClient(newClientID)
-	cm.broadcastNewClient(newClientID)
+	go cm.initializeExistingClientsForNewClient(newClientID)
+	go cm.broadcastNewClient(newClientID)
 	
 	return newClientID, nil
 }
@@ -86,6 +85,9 @@ func (cm *clientManager) UnregisterClient(clientID int) {
 }
 
 func (cm *clientManager) initializeExistingClientsForNewClient(newClientID int) {
+	cm.clientsMu.RLock()
+	defer cm.clientsMu.RUnlock()
+
 	existingClients := []string{}
 	for existingClient := range cm.clients {
 		if existingClient == newClientID {
