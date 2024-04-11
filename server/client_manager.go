@@ -26,7 +26,7 @@ func (cm *clientManager) sendMessage(clientId int, message string) error {
 	return err
 }
 
-func (cm *clientManager) broadcastMessage (fromClient int, message string) {
+func (cm *clientManager) broadcastMessage(fromClient int, message string) {
 	cm.clientsMu.RLock()
 	defer cm.clientsMu.RUnlock()
 	for toClient := range cm.clients {
