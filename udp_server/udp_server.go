@@ -3,7 +3,6 @@ package udp_server
 import (
 	"fmt"
 	"net"
-	"strings"
 	"time"
 )
 
@@ -55,25 +54,21 @@ func (s *server) receiveMessages() {
 		}
 
 		// start processing message
-		go s.processMessage(addr, buf[:n])
+		go s.processMessage(addr, buf[:n-1])
 	}
 }
 
 func (s *server) processMessage(addr *net.UDPAddr, data []byte) {
-	dataStr := strings.TrimSpace(string(data))
-
-	logger.log(LOG_LEVEL_DEBUG, "Recieved:(%s)", dataStr)
-
 	msg, err := parser.ParseMessage(data)
 	if err != nil {
-		logger.log(LOG_LEVEL_WARNING, "Unable to parse packet %s: %s", dataStr, err)
+		logger.log(LOG_LEVEL_WARNING, "Unable to parse packet (%s): %s", data, err)
 		return
 	}
 	switch msg.messageType {
 	case PLAYER_STATE_MESSAGE:
 		pos, err := parser.ParsePlayerState(msg.data)
 		if err != nil {
-			logger.log(LOG_LEVEL_WARNING, "Unable to parse player state from packet: %s", err)
+			logger.log(LOG_LEVEL_WARNING, "Unable to parse player state from packet (%s): %s", data, err)
 			return
 		}
 		addrStr := addr.String()
@@ -86,7 +81,7 @@ func (s *server) processMessage(addr *net.UDPAddr, data []byte) {
 		name := parser.ParseLoginMessage(msg.data)
 		s.playerManager.CreatePlayer(addr, name)
 	default:
-		logger.log(LOG_LEVEL_WARNING, "Unknown message type: %s", dataStr)
+		logger.log(LOG_LEVEL_WARNING, "Unknown message type: %s", data)
 	}
 }
 

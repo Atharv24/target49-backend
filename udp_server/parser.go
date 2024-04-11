@@ -29,11 +29,12 @@ func (p *Parser) ParseMessage(data []byte) (message, error) {
 	}
 	parsedData := string(data)
 	chunks := strings.Split(parsedData, ";")
+	if len(chunks) < 2 {
+		return message{}, fmt.Errorf("missing type or data in packet")
+	}
 	message := message{
 		messageType: chunks[0],
-	}
-	if len(chunks) > 1 {
-		message.data = chunks[1]
+		data:        chunks[1],
 	}
 	return message, nil
 }
