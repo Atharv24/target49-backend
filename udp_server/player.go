@@ -21,9 +21,9 @@ type Position struct {
 
 func NewPlayer(id int, addr *net.UDPAddr, name string) PlayerState {
 	return PlayerState{
-		ID:   id,
-		Addr: addr,
-		Name: name,
+		ID:    id,
+		Addr:  addr,
+		Name:  name,
 		Position: Position{
 			x: 0,
 			y: 0,

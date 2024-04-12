@@ -10,7 +10,7 @@ type Logger struct {
 
 const (
 	LOG_LEVEL_DEBUG   int = 0
-	LOG_LEVEL_DEFAULT int = 1
+	LOG_LEVEL_INFO    int = 1
 	LOG_LEVEL_WARNING int = 2
 	LOG_LEVEL_ERROR   int = 3
 )
@@ -21,7 +21,7 @@ var logger Logger // Package-level variable to hold the logger instance
 
 func init() {
 	logger = Logger{
-		level: LOG_LEVEL_DEFAULT, // Initialize the logger with the default level
+		level: LOG_LEVEL_INFO, // Initialize the logger with the default level
 	}
 }
 

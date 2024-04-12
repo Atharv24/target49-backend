@@ -3,20 +3,29 @@ package udp_server
 import (
 	"fmt"
 	"net"
+	"sync"
 	"time"
 )
 
 type server struct {
-	conn          *net.UDPConn
-	port          int
-	quitCh        chan struct{}
-	playerManager *PlayerManager
+	conn            *net.UDPConn
+	port            int
+	quitCh          chan struct{}
+	quitReceive     chan struct{}
+	quitBroadcast   chan struct{}
+	broadcastTicker *time.Ticker
+	broadcastLock   sync.Mutex
+	playerManager   *PlayerManager
 }
 
-func NewServer(port int) *server {
+func NewServer(port int, broadcastDelay time.Duration) *server {
 	return &server{
-		port:          port,
-		playerManager: NewPlayerManager(),
+		port:            port,
+		playerManager:   NewPlayerManager(),
+		broadcastTicker: time.NewTicker(broadcastDelay),
+		quitCh:          make(chan struct{}),
+		quitReceive:     make(chan struct{}),
+		quitBroadcast:   make(chan struct{}),
 	}
 
 }
@@ -36,25 +45,56 @@ func (s *server) Start() error {
 
 	fmt.Println("Server listening on port 42069")
 	s.conn = conn
-	go s.receiveMessages()
-	go s.broadcastMessages()
 
+	go s.receiveMessages()
+	go s.broadcastPlayerStates()
+
+	// Wait for server to be stopped
 	<-s.quitCh
+
+	// Signal both goroutines to stop
+	close(s.quitReceive)
+	close(s.quitBroadcast)
+	s.broadcastTicker.Stop()
 
 	return nil
 }
 
 func (s *server) receiveMessages() {
 	for {
-		buf := make([]byte, 1024)
-		n, addr, err := s.conn.ReadFromUDP(buf)
-		if err != nil {
-			logger.log(LOG_LEVEL_WARNING, "Error reading from UDP:%s", err.Error())
-			continue
-		}
+		select {
+		case <-s.quitReceive:
+			return
+		default:
+			buf := make([]byte, 1024)
+			n, addr, err := s.conn.ReadFromUDP(buf)
+			if err != nil {
+				logger.log(LOG_LEVEL_WARNING, "Error reading from UDP:%s", err.Error())
+				continue
+			}
 
-		// start processing message
-		go s.processMessage(addr, buf[:n-1])
+			// start processing message
+			go s.processMessage(addr, buf[:n])
+		}
+	}
+}
+
+func (s *server) broadcastPlayerStates() {
+	for {
+		select {
+		case <-s.quitBroadcast:
+			return
+		case <-s.broadcastTicker.C:
+			// logger.log(LOG_LEVEL_DEBUG, "BROADCAST TICK")
+			if playerStates := s.playerManager.GetAllPlayerStates(nil); len(playerStates) > 1 {
+				broadcastPacket := parser.EncodePlayerStatesForBroadcast(playerStates)
+				playerAddrs := []*net.UDPAddr{}
+				for _, ps := range playerStates {
+					playerAddrs = append(playerAddrs, ps.Addr)
+				}
+				s.broadcastPacket(playerAddrs, broadcastPacket)
+			}
+		}
 	}
 }
 
@@ -66,32 +106,73 @@ func (s *server) processMessage(addr *net.UDPAddr, data []byte) {
 	}
 	switch msg.messageType {
 	case PLAYER_STATE_MESSAGE:
-		pos, err := parser.ParsePlayerState(msg.data)
-		if err != nil {
-			logger.log(LOG_LEVEL_WARNING, "Unable to parse player state from packet (%s): %s", data, err)
-			return
-		}
-		addrStr := addr.String()
-		err = s.playerManager.UpdatePlayerState(addrStr, pos)
-		if err != nil {
-			logger.log(LOG_LEVEL_WARNING, err.Error())
-			return
-		}
+		s.handlePlayerStateUpdate(msg, data, addr)
 	case PLAYER_LOGIN:
-		name := parser.ParseLoginMessage(msg.data)
-		s.playerManager.CreatePlayer(addr, name)
+		s.handlePlayerLogin(addr, msg.data)
 	default:
 		logger.log(LOG_LEVEL_WARNING, "Unknown message type: %s", data)
 	}
 }
 
-func (s *server) broadcastMessages() {
-	ticker := time.NewTicker(1000 * time.Millisecond)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		if broadcastData := s.playerManager.GetAllPlayerStatesPacket(); broadcastData != "" {
-			logger.log(LOG_LEVEL_DEBUG, broadcastData)
-		}
+func (s *server) handlePlayerStateUpdate(msg message, data []byte, addr *net.UDPAddr) {
+	pos, err := parser.ParsePlayerState(msg.data)
+	if err != nil {
+		logger.log(LOG_LEVEL_WARNING, "Unable to parse player state from packet (%s): %s", data, err)
+		return
 	}
+	addrStr := addr.String()
+	err = s.playerManager.UpdatePlayerState(addrStr, pos)
+	if err != nil {
+		logger.log(LOG_LEVEL_WARNING, err.Error())
+	}
+}
+
+func (s *server) sendPacket(addr *net.UDPAddr, packet string) {
+	s.conn.WriteToUDP([]byte(packet), addr)
+}
+
+func (s *server) broadcastPacket(addrs []*net.UDPAddr, packet string) {
+	for _, addr := range addrs {
+		s.sendPacket(addr, packet)
+	}
+}
+
+func (s *server) handlePlayerLogin(addr *net.UDPAddr, data string) {
+	name := parser.ParseLoginMessage(data)
+	newPlayerState, err := s.playerManager.CreatePlayer(addr, name)
+	if err != nil {
+		logger.log(LOG_LEVEL_WARNING, err.Error())
+		return
+	}
+
+	// Send all logged in players
+	existingPlayerStates := s.playerManager.GetAllPlayerStates(newPlayerState.Addr)
+	initPacket := parser.EncodePlayerStatesForInit(newPlayerState, existingPlayerStates)
+
+	s.sendPacket(newPlayerState.Addr, initPacket)
+
+	existingPlayerAddrs := []*net.UDPAddr{}
+	for _, ps := range existingPlayerStates {
+		existingPlayerAddrs = append(existingPlayerAddrs, ps.Addr)
+	}
+	// broadcast to all players that new player is here
+	packet := parser.EncodePlayerStateForInit(newPlayerState)
+	s.broadcastPacket(existingPlayerAddrs, packet)
+
+	logger.log(LOG_LEVEL_INFO, "Player %d logged in: %s", newPlayerState.ID, newPlayerState.Name)
+}
+
+func (s *server) SetBroadcastDelay(newDelay time.Duration) {
+	// Lock to prevent race conditions while updating broadcastDelay
+	s.broadcastLock.Lock()
+	defer s.broadcastLock.Unlock()
+
+	s.quitBroadcast <- struct{}{}
+
+	// Stop the current ticker
+	s.broadcastTicker.Stop()
+
+	// Start a new ticker with the updated delay
+	s.broadcastTicker = time.NewTicker(newDelay)
+	go s.broadcastPlayerStates()
 }

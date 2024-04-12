@@ -3,7 +3,6 @@ package udp_server
 import (
 	"fmt"
 	"net"
-	"strings"
 	"sync"
 )
 
@@ -17,16 +16,25 @@ func NewPlayerManager() *PlayerManager {
 	return &PlayerManager{}
 }
 
-func (pm *PlayerManager) CreatePlayer(addr *net.UDPAddr, name string) {
+func (pm *PlayerManager) CreatePlayer(addr *net.UDPAddr, name string) (PlayerState, error) {
+	// check if player already logged in once
+	_, ok := pm.players.Load(addr.String())
+	if ok {
+		return PlayerState{}, fmt.Errorf("client %s: Cant login more than once", addr.String())
+	}
+
 	pm.playerIDMu.Lock()
 
-	playerId := pm.IDGenerator
 	pm.IDGenerator++
+	playerId := pm.IDGenerator
 
 	pm.playerIDMu.Unlock()
 
 	playerState := NewPlayer(playerId, addr, name)
+
 	pm.players.Store(addr.String(), playerState)
+
+	return playerState, nil
 }
 
 func (pm *PlayerManager) UpdatePlayerState(addrStr string, newPosition Position) error {
@@ -54,32 +62,28 @@ func (pm *PlayerManager) GetPlayerState(addrStr string) (PlayerState, error) {
 	}
 	playerState, ok := state.(PlayerState)
 	if !ok {
-		return PlayerState{}, fmt.Errorf("client %s: Unable to parse player state from map", addrStr)
+		return PlayerState{}, fmt.Errorf("client %s: Unable to type assert player state from map", addrStr)
 	}
 	return playerState, nil
 }
 
-func (pm *PlayerManager) GetAllPlayerStatesPacket() string {
-	isMapEmpty := true
-	strBuilder := strings.Builder{}
-
-	strBuilder.WriteString(PLAYER_STATE_MESSAGE)
-
+func (pm *PlayerManager) GetAllPlayerStates(skipAddr *net.UDPAddr) []PlayerState {
+	states := []PlayerState{}
 	// Iterate over the player states in the concurrent map
 	pm.players.Range(func(addrStr, state interface{}) bool {
-		isMapEmpty = false
+		if skipAddr != nil && addrStr == skipAddr.String() {
+			return true
+		}
 		// Convert state to PlayerState type
 		playerState, ok := state.(PlayerState)
 		if !ok {
 			// Handle type assertion error
-			logger.log(LOG_LEVEL_WARNING, "Client %s: Unable to parse player state from map", addrStr)
+			logger.log(LOG_LEVEL_WARNING, "Client %s: Unable to type assert player state from map", addrStr)
 			return true // Continue iteration
 		}
-		strBuilder.WriteString(fmt.Sprintf(";%s", playerState.String()))
+		states = append(states, playerState)
 		return true // Continue iteration
 	})
-	if isMapEmpty {
-		return ""
-	}
-	return strBuilder.String()
+	// logger.log(LOG_LEVEL_DEBUG, "states read: %d", len(states))
+	return states
 }
