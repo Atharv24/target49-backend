@@ -18,11 +18,11 @@ type server struct {
 	playerManager   *PlayerManager
 }
 
-func NewServer(port int, broadcastDelay time.Duration) *server {
+func NewServer(port int, broadcastDelayMs int) *server {
 	return &server{
 		port:            port,
 		playerManager:   NewPlayerManager(),
-		broadcastTicker: time.NewTicker(broadcastDelay),
+		broadcastTicker: time.NewTicker(time.Duration(broadcastDelayMs) * time.Millisecond),
 		quitCh:          make(chan struct{}),
 		quitReceive:     make(chan struct{}),
 		quitBroadcast:   make(chan struct{}),
@@ -106,7 +106,7 @@ func (s *server) processMessage(addr *net.UDPAddr, data []byte) {
 	}
 	switch msg.messageType {
 	case PLAYER_STATE_MESSAGE:
-		s.handlePlayerStateUpdate(msg, data, addr)
+		s.handlePlayerStateUpdate(addr, msg.data)
 	case PLAYER_LOGIN:
 		s.handlePlayerLogin(addr, msg.data)
 	default:
@@ -114,14 +114,14 @@ func (s *server) processMessage(addr *net.UDPAddr, data []byte) {
 	}
 }
 
-func (s *server) handlePlayerStateUpdate(msg message, data []byte, addr *net.UDPAddr) {
-	pos, err := parser.ParsePlayerState(msg.data)
+func (s *server) handlePlayerStateUpdate(addr *net.UDPAddr, data string) {
+	ps, err := parser.ParsePlayerState(data)
 	if err != nil {
 		logger.log(LOG_LEVEL_WARNING, "Unable to parse player state from packet (%s): %s", data, err)
 		return
 	}
 	addrStr := addr.String()
-	err = s.playerManager.UpdatePlayerState(addrStr, pos)
+	err = s.playerManager.UpdatePlayerState(addrStr, ps)
 	if err != nil {
 		logger.log(LOG_LEVEL_WARNING, err.Error())
 	}
@@ -162,7 +162,7 @@ func (s *server) handlePlayerLogin(addr *net.UDPAddr, data string) {
 	logger.log(LOG_LEVEL_INFO, "Player %d logged in: %s", newPlayerState.ID, newPlayerState.Name)
 }
 
-func (s *server) SetBroadcastDelay(newDelay time.Duration) {
+func (s *server) SetBroadcastDelay(newDelayMs int) {
 	// Lock to prevent race conditions while updating broadcastDelay
 	s.broadcastLock.Lock()
 	defer s.broadcastLock.Unlock()
@@ -173,6 +173,6 @@ func (s *server) SetBroadcastDelay(newDelay time.Duration) {
 	s.broadcastTicker.Stop()
 
 	// Start a new ticker with the updated delay
-	s.broadcastTicker = time.NewTicker(newDelay)
+	s.broadcastTicker = time.NewTicker(time.Duration(newDelayMs) * time.Millisecond)
 	go s.broadcastPlayerStates()
 }

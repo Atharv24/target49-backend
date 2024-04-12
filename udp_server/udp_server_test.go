@@ -13,12 +13,12 @@ import (
 )
 
 var testServer *server
+var serverPort = 42069
 
 func TestMain(m *testing.M) {
 	// Setup server once before running tests
-	serverPort := 42069
-	broadcastDelay := 5000 * time.Millisecond // large broadcast delay initially
-	testServer = NewServer(serverPort, broadcastDelay)
+	broadcastDelayMs := 5000 // large broadcast delay initially
+	testServer = NewServer(serverPort, broadcastDelayMs)
 	go func() {
 		if err := testServer.Start(); err != nil {
 			panic(err)
@@ -66,11 +66,16 @@ func TestHandlePlayerLogin(t *testing.T) {
 		return
 	}
 	// Check response
-	newPos := Position{}
-	expectedResponse := fmt.Sprintf("%s;1:%s", INITIAL_MESSAGE, newPos.String())
 	actualResponse := string(buffer[:n])
+	chunks := strings.Split(actualResponse, ";")
+	assert.GreaterOrEqual(t, len(chunks), 2)
+	assert.Equal(t, INITIAL_MESSAGE, chunks[0])
 
-	assert.Equal(t, expectedResponse, actualResponse)
+	moreChunks := strings.Split(chunks[1], ":")
+	assert.Equal(t, len(moreChunks), 3)
+
+	pos := Position{}
+	assert.Equal(t, pos.String(), moreChunks[1])
 }
 func TestHandleTwoPlayerLogin(t *testing.T) {
 	// Connect to the server
@@ -103,13 +108,13 @@ func TestHandleTwoPlayerLogin(t *testing.T) {
 	assert.GreaterOrEqual(t, len(chunks), 2)
 	assert.Equal(t, INITIAL_MESSAGE, chunks[0])
 
-	pos := Position{}
 	moreChunks := strings.Split(chunks[1], ":")
-	assert.Equal(t, len(moreChunks), 2)
+	assert.Equal(t, 3, len(moreChunks))
 
 	id1, err := strconv.Atoi(moreChunks[0])
 	assert.Nil(t, err)
 
+	pos := Position{}
 	assert.Equal(t, pos.String(), moreChunks[1])
 
 	conn2, err := net.Dial("udp", "localhost:42069")
@@ -142,7 +147,7 @@ func TestHandleTwoPlayerLogin(t *testing.T) {
 	assert.Equal(t, INITIAL_MESSAGE, chunks2[0])
 	moreChunks2 := strings.Split(chunks2[1], ":")
 
-	assert.Equal(t, len(moreChunks2), 2)
+	assert.Equal(t, 3, len(moreChunks2))
 
 	id2, err := strconv.Atoi(moreChunks2[0])
 	assert.Equal(t, nil, err)
@@ -153,7 +158,7 @@ func TestHandleTwoPlayerLogin(t *testing.T) {
 	id1Found := false
 	for i := 2; i < len(chunks2); i++ {
 		moreChunks3 := strings.Split(chunks2[i], ":")
-		assert.Equal(t, 2, len(moreChunks3))
+		assert.Equal(t, 3, len(moreChunks3))
 		assert.Equal(t, pos.String(), moreChunks3[1])
 		id3, err := strconv.Atoi(moreChunks3[0])
 		assert.Nil(t, err)
@@ -177,7 +182,7 @@ func TestHandleTwoPlayerLogin(t *testing.T) {
 	assert.Equal(t, NEW_PLAYER, chunks[0])
 
 	moreChunks = strings.Split(chunks[1], ":")
-	assert.Equal(t, 2, len(moreChunks))
+	assert.Equal(t, 3, len(moreChunks))
 
 	id, err := strconv.Atoi(moreChunks[0])
 	assert.Nil(t, err)
@@ -229,7 +234,7 @@ func TestBroadcasting(t *testing.T) {
 	selfState := strings.Split(initPacket, ";")[1]
 	id := selfState[0]
 
-	testServer.SetBroadcastDelay(100 * time.Millisecond)
+	testServer.SetBroadcastDelay(10)
 	// read 10 state packets
 	for i := 0; i < 10; i++ {
 		n, err = conn.Read(buffer)
@@ -255,7 +260,7 @@ func TestBroadcasting(t *testing.T) {
 		1,
 		1,
 	}
-	movementPacket := fmt.Sprintf("%s;%s", PLAYER_STATE_MESSAGE, newPos.String())
+	movementPacket := fmt.Sprintf("%s;%s:%d", PLAYER_STATE_MESSAGE, newPos.String(), time.Now().UnixMilli())
 	conn.Write([]byte(movementPacket))
 
 	// read 10 state packets
@@ -269,10 +274,11 @@ func TestBroadcasting(t *testing.T) {
 		chunks := strings.Split(packet, ";")
 		assert.Equal(t, PLAYER_STATE_MESSAGE, chunks[0])
 		idFound := false
-		for _, chunk := range chunks {
-			if chunk[0] == id {
+		for i := 1; i < len(chunks); i++ {
+			moreChunks := strings.Split(chunks[i], ":")
+			if moreChunks[0][0] == id {
 				idFound = true
-				assert.Equal(t, newPos.String(), chunk[2:])
+				assert.Equal(t, newPos.String(), moreChunks[1])
 				break
 			}
 		}

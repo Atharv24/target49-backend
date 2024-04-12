@@ -37,17 +37,18 @@ func (pm *PlayerManager) CreatePlayer(addr *net.UDPAddr, name string) (PlayerSta
 	return playerState, nil
 }
 
-func (pm *PlayerManager) UpdatePlayerState(addrStr string, newPosition Position) error {
+func (pm *PlayerManager) UpdatePlayerState(addrStr string, newPlayerState PlayerState) error {
 	oldState, err := pm.GetPlayerState(addrStr)
 	if err != nil {
 		return err
 	}
 	newState := PlayerState{
-		ID:       oldState.ID,
-		Addr:     oldState.Addr,
-		Name:     oldState.Name,
-		Health:   oldState.Health,
-		Position: newPosition,
+		ID:            oldState.ID,
+		Addr:          oldState.Addr,
+		Name:          oldState.Name,
+		Health:        oldState.Health,
+		Position:      newPlayerState.Position,
+		LastUpdatedAt: newPlayerState.LastUpdatedAt,
 	}
 	// Update player's state in the concurrent map
 	pm.players.Store(addrStr, newState)

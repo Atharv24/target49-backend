@@ -13,16 +13,16 @@ type message struct {
 }
 
 const (
-	// S;{POS} from client, S;{ID}:{POS};{ID}:{POS} from server
+	// S;{POS}:{TIMESTAMP} from client, S;{ID}:{POS}:{TIMESTAMP};{ID}:{POS}:{TIMESTAMP} from server
 	PLAYER_STATE_MESSAGE = "S"
 
 	// L;{NAME} from client
 	PLAYER_LOGIN = "L"
 
-	// I;{NEW_PLAYER_ID}:{NEW_POS};{ID1}:{POS1};{ID2}:{POS2} from server
+	// I;{NEW_PLAYER_ID}:{NEW_POS};{ID1}:{POS1};{ID2}:{POS2} from server to the new client
 	INITIAL_MESSAGE = "I"
 
-	// N;{NEW_PLAYER_ID}:{NEW_POS} from server
+	// N;{NEW_PLAYER_ID}:{NEW_POS} from server to all existing clients
 	NEW_PLAYER = "N"
 )
 
@@ -48,16 +48,12 @@ func (p *Parser) ParseMessage(data []byte) (message, error) {
 	return message, nil
 }
 
-func (p *Parser) ParsePlayerState(newStateStr string) (Position, error) {
-	// newStateStr = "0.000,0.000,0.000"
-	if len(newStateStr) < 5*3+2 {
-		return Position{}, fmt.Errorf("invalid length of state packet")
-	}
+func (p *Parser) ParsePlayerState(newStateStr string) (PlayerState, error) {
+	// newStateStr = "0.000,0.000,0.000:123123441"
+	var ps PlayerState
+	_, err := fmt.Sscanf(newStateStr, "%f,%f,%f:%d", &ps.Position.x, &ps.Position.y, &ps.Position.z, &ps.LastUpdatedAt)
 
-	var pos Position
-	fmt.Sscanf(newStateStr, "%f,%f,%f", &pos.x, &pos.y, &pos.z)
-
-	return pos, nil
+	return ps, err
 }
 
 func (p *Parser) ParseLoginMessage(loginData string) string {
