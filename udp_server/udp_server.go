@@ -87,6 +87,8 @@ func (s *server) broadcastPlayerStates() {
 		case <-s.broadcastTicker.C:
 			// logger.log(LOG_LEVEL_DEBUG, "BROADCAST TICK")
 			if playerStates := s.playerManager.GetAllPlayerStates(nil); len(playerStates) > 1 {
+				// go s.calculateBroadcastDelay(playerStates)
+
 				broadcastPacket := parser.EncodePlayerStatesForBroadcast(playerStates)
 				playerAddrs := []*net.UDPAddr{}
 				for _, ps := range playerStates {
@@ -149,6 +151,7 @@ func (s *server) handlePlayerLogin(addr *net.UDPAddr, data string) {
 	existingPlayerStates := s.playerManager.GetAllPlayerStates(newPlayerState.Addr)
 	initPacket := parser.EncodePlayerStatesForInit(newPlayerState, existingPlayerStates)
 
+	// logger.log(LOG_LEVEL_DEBUG, "Player %d: Init packet (%s)", newPlayerState.ID, initPacket)
 	s.sendPacket(newPlayerState.Addr, initPacket)
 
 	existingPlayerAddrs := []*net.UDPAddr{}
@@ -157,6 +160,8 @@ func (s *server) handlePlayerLogin(addr *net.UDPAddr, data string) {
 	}
 	// broadcast to all players that new player is here
 	packet := parser.EncodePlayerStateForInit(newPlayerState)
+
+	// logger.log(LOG_LEVEL_DEBUG, "Player %d: Broadcast packet (%s)", newPlayerState.ID, packet)
 	s.broadcastPacket(existingPlayerAddrs, packet)
 
 	logger.log(LOG_LEVEL_INFO, "Player %d logged in: %s", newPlayerState.ID, newPlayerState.Name)
@@ -176,3 +181,14 @@ func (s *server) SetBroadcastDelay(newDelayMs int) {
 	s.broadcastTicker = time.NewTicker(time.Duration(newDelayMs) * time.Millisecond)
 	go s.broadcastPlayerStates()
 }
+
+// func (s *server) calculateBroadcastDelay(playerStates []PlayerState) {
+// 	current_ms := time.Now().UnixMilli()
+// 	for _, ps := range playerStates {
+// 		latency := current_ms - ps.LastUpdatedAt
+
+// 		if latency > 100 {
+// 			logger.log(LOG_LEVEL_DEBUG, "[%v] Player %d: High latency %dms", time.Now(), ps.ID, latency)
+// 		}
+// 	}
+// }

@@ -19,10 +19,10 @@ const (
 	// L;{NAME} from client
 	PLAYER_LOGIN = "L"
 
-	// I;{NEW_PLAYER_ID}:{NEW_POS};{ID1}:{POS1};{ID2}:{POS2} from server to the new client
+	// I;{NEW_PLAYER_ID}:{NEW_POS}:{TIMESTAMP};{ID1}:{POS1}:{TIMESTAMP};{ID2}:{POS2}:{TIMESTAMP} from server to the new client
 	INITIAL_MESSAGE = "I"
 
-	// N;{NEW_PLAYER_ID}:{NEW_POS} from server to all existing clients
+	// N;{NEW_PLAYER_ID}:{NEW_POS}:{TIMESTAMP} from server to all existing clients
 	NEW_PLAYER = "N"
 )
 

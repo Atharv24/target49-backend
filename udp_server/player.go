@@ -2,6 +2,7 @@ package udp_server
 
 import (
 	"fmt"
+	"math/rand"
 	"net"
 	"time"
 )
@@ -27,9 +28,9 @@ func NewPlayer(id int, addr *net.UDPAddr, name string) PlayerState {
 		Addr: addr,
 		Name: name,
 		Position: Position{
-			x: 0,
-			y: 0,
-			z: 0,
+			x: rand.Float32() * 10,
+			y: 1,
+			z: rand.Float32() * 10,
 		},
 		Health:        100,
 		LastUpdatedAt: time.Now().UnixMilli(),

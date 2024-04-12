@@ -260,7 +260,7 @@ func TestBroadcasting(t *testing.T) {
 		1,
 		1,
 	}
-	movementPacket := fmt.Sprintf("%s;%s:%d", PLAYER_STATE_MESSAGE, newPos.String(), time.Now().UnixMilli())
+	movementPacket := fmt.Sprintf("%s;%s:%.3f", PLAYER_STATE_MESSAGE, newPos.String(), float64(time.Now().UnixMilli()/1000))
 	conn.Write([]byte(movementPacket))
 
 	// read 10 state packets

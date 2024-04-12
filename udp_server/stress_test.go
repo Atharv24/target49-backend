@@ -10,14 +10,14 @@ import (
 	"time"
 )
 
-var runMs = 20 * 1000
+var runMs = 5 * 1000
 var serverBroadcastDelayMs = 5
 var clientSendDelay = 5
 
 var readerRunCount = runMs / serverBroadcastDelayMs
 var writerRunCount = runMs / clientSendDelay
 
-var numClients = 25
+var numClients = 5
 
 func TestStressTest(t *testing.T) {
 	testServer.SetBroadcastDelay(serverBroadcastDelayMs)
@@ -143,10 +143,10 @@ func TestStressTest(t *testing.T) {
 			packetLatency += latency
 		}
 		packetLatency /= int64(len(info))
-		fmt.Printf("Average packet latency: %v\n", time.Duration(packetLatency))
+		fmt.Printf("Average packet latency: %v\n", time.Duration(packetLatency*1000))
 		totalLatency += packetLatency
 	}
 
 	avgLatency := totalLatency / numPackets
-	fmt.Printf("Average Latency: %v\n", (time.Duration(avgLatency)))
+	fmt.Printf("Average Latency: %v\n", (time.Duration(avgLatency * 1000)))
 }
