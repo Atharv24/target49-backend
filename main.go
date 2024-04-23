@@ -8,7 +8,7 @@ import (
 
 func main() {
 	port := 42069
-	broadcastDelayMs := 5
+	broadcastDelayMs := 10
 	server := udp_server.NewServer(port, broadcastDelayMs)
 	err := server.Start()
 	if err != nil {

@@ -3,6 +3,8 @@ package udp_server
 import (
 	"fmt"
 	"net"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -107,6 +109,8 @@ func (s *server) processMessage(addr *net.UDPAddr, data []byte) {
 		return
 	}
 	switch msg.messageType {
+	case PLAYER_SHOT_MESSAGE:
+		s.handlePlayerShotMessage(addr, msg.data)
 	case PLAYER_STATE_MESSAGE:
 		s.handlePlayerStateUpdate(addr, msg.data)
 	case PLAYER_LOGIN:
@@ -126,6 +130,23 @@ func (s *server) handlePlayerStateUpdate(addr *net.UDPAddr, data string) {
 	err = s.playerManager.UpdatePlayerState(addrStr, ps)
 	if err != nil {
 		logger.log(LOG_LEVEL_WARNING, err.Error())
+	}
+}
+
+func (s *server) handlePlayerShotMessage(shooterAddr *net.UDPAddr, data string) {
+	chunks := strings.Split(data, ":")
+
+	hitPlayerID, err := strconv.Atoi(chunks[0])
+	if err != nil {
+		logger.log(LOG_LEVEL_WARNING, "Unable to parse Player ID from packet (%s)", data)
+	}
+	lastUpdatedAt, err := strconv.ParseInt(chunks[1], 10, 64)
+	if err != nil {
+		logger.warn("Unable to parse timestamp from packet: %s", data)
+	}
+	addr := s.playerManager.HandlePlayerShot(hitPlayerID, shooterAddr, lastUpdatedAt)
+	if addr != nil {
+		s.sendPacket(addr, parser.EncodePlayerResetMessage())
 	}
 }
 
@@ -187,8 +208,8 @@ func (s *server) SetBroadcastDelay(newDelayMs int) {
 // 	for _, ps := range playerStates {
 // 		latency := current_ms - ps.LastUpdatedAt
 
-// 		if latency > 100 {
-// 			logger.log(LOG_LEVEL_DEBUG, "[%v] Player %d: High latency %dms", time.Now(), ps.ID, latency)
+// 		if latency > 50 {
+// 			logger.log(LOG_LEVEL_DEBUG, "[%v] Player %d: High latency %dms", time.Now().String(), ps.ID, latency)
 // 		}
 // 	}
 // }

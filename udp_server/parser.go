@@ -12,20 +12,6 @@ type message struct {
 	data        string
 }
 
-const (
-	// S;{POS}:{TIMESTAMP} from client, S;{ID}:{POS}:{TIMESTAMP};{ID}:{POS}:{TIMESTAMP} from server
-	PLAYER_STATE_MESSAGE = "S"
-
-	// L;{NAME} from client
-	PLAYER_LOGIN = "L"
-
-	// I;{NEW_PLAYER_ID}:{NEW_POS}:{TIMESTAMP};{ID1}:{POS1}:{TIMESTAMP};{ID2}:{POS2}:{TIMESTAMP} from server to the new client
-	INITIAL_MESSAGE = "I"
-
-	// N;{NEW_PLAYER_ID}:{NEW_POS}:{TIMESTAMP} from server to all existing clients
-	NEW_PLAYER = "N"
-)
-
 var parser Parser // Package-level variable to hold the logger instance
 
 func init() {
@@ -49,9 +35,9 @@ func (p *Parser) ParseMessage(data []byte) (message, error) {
 }
 
 func (p *Parser) ParsePlayerState(newStateStr string) (PlayerState, error) {
-	// newStateStr = "0.000,0.000,0.000:123123441"
+	// newStateStr = "0.000,0.000,0.000:0.000:123123441"
 	var ps PlayerState
-	_, err := fmt.Sscanf(newStateStr, "%f,%f,%f:%d", &ps.Position.x, &ps.Position.y, &ps.Position.z, &ps.LastUpdatedAt)
+	_, err := fmt.Sscanf(newStateStr, "%f,%f,%f:%f:%d", &ps.Position.x, &ps.Position.y, &ps.Position.z, &ps.Rotation, &ps.LastUpdatedAt)
 
 	return ps, err
 }
@@ -90,4 +76,8 @@ func (p *Parser) EncodePlayerStateForInit(
 	newPlayerState PlayerState,
 ) string {
 	return fmt.Sprintf("%s;%s", NEW_PLAYER, newPlayerState.String())
+}
+
+func (p *Parser) EncodePlayerResetMessage() string {
+	return fmt.Sprintf("%s;%s:%.3f:%d", PLAYER_RESET, RandomPosition().String(), 0.0, MAX_HEALTH)
 }

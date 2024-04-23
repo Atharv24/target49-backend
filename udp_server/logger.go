@@ -35,3 +35,15 @@ func (log *Logger) log(level int, msg string, args ...any) {
 		fmt.Printf("[%s] %s\n", logArray[level], formattedMsg)
 	}
 }
+
+func (log *Logger) warn(msg string, args ...any) {
+	log.log(LOG_LEVEL_WARNING, msg, args...)
+}
+
+func (log *Logger) info(msg string, args ...any) {
+	log.log(LOG_LEVEL_INFO, msg, args...)
+}
+
+func (log *Logger) debug(msg string, args ...any) {
+	log.log(LOG_LEVEL_INFO, msg, args...)
+}
