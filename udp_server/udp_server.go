@@ -71,7 +71,7 @@ func (s *server) receiveMessages() {
 			buf := make([]byte, 1024)
 			n, addr, err := s.conn.ReadFromUDP(buf)
 			if err != nil {
-				logger.log(LOG_LEVEL_WARNING, "Error reading from UDP:%s", err.Error())
+				logger.warn("Error reading from UDP:%s", err.Error())
 				continue
 			}
 
@@ -105,7 +105,7 @@ func (s *server) broadcastPlayerStates() {
 func (s *server) processMessage(addr *net.UDPAddr, data []byte) {
 	msg, err := parser.ParseMessage(data)
 	if err != nil {
-		logger.log(LOG_LEVEL_WARNING, "Unable to parse packet (%s): %s", data, err)
+		logger.warn("Unable to parse packet (%s): %s", data, err)
 		return
 	}
 	switch msg.messageType {
@@ -113,23 +113,23 @@ func (s *server) processMessage(addr *net.UDPAddr, data []byte) {
 		s.handlePlayerShotMessage(addr, msg.data)
 	case PLAYER_STATE_MESSAGE:
 		s.handlePlayerStateUpdate(addr, msg.data)
-	case PLAYER_LOGIN:
+	case PLAYER_LOGIN_MESSAGE:
 		s.handlePlayerLogin(addr, msg.data)
 	default:
-		logger.log(LOG_LEVEL_WARNING, "Unknown message type: %s", data)
+		logger.warn("Unknown message type: %s", data)
 	}
 }
 
 func (s *server) handlePlayerStateUpdate(addr *net.UDPAddr, data string) {
 	ps, err := parser.ParsePlayerState(data)
 	if err != nil {
-		logger.log(LOG_LEVEL_WARNING, "Unable to parse player state from packet (%s): %s", data, err)
+		logger.warn("Unable to parse player state from packet (%s): %s", data, err)
 		return
 	}
 	addrStr := addr.String()
 	err = s.playerManager.UpdatePlayerState(addrStr, ps)
 	if err != nil {
-		logger.log(LOG_LEVEL_WARNING, err.Error())
+		logger.warn(err.Error())
 	}
 }
 
@@ -138,7 +138,7 @@ func (s *server) handlePlayerShotMessage(shooterAddr *net.UDPAddr, data string) 
 
 	hitPlayerID, err := strconv.Atoi(chunks[0])
 	if err != nil {
-		logger.log(LOG_LEVEL_WARNING, "Unable to parse Player ID from packet (%s)", data)
+		logger.warn("Unable to parse Player ID from packet (%s)", data)
 	}
 	lastUpdatedAt, err := strconv.ParseInt(chunks[1], 10, 64)
 	if err != nil {
@@ -147,6 +147,13 @@ func (s *server) handlePlayerShotMessage(shooterAddr *net.UDPAddr, data string) 
 	addr := s.playerManager.HandlePlayerShot(hitPlayerID, shooterAddr, lastUpdatedAt)
 	if addr != nil {
 		s.sendPacket(addr, parser.EncodePlayerResetMessage())
+
+		playerAddrs := []*net.UDPAddr{}
+		playerStates := s.playerManager.GetAllPlayerStates(nil)
+		for _, ps := range playerStates {
+			playerAddrs = append(playerAddrs, ps.Addr)
+		}
+		s.broadcastPacket(playerAddrs, parser.EncodePlayerScores(playerStates))
 	}
 }
 
@@ -164,7 +171,7 @@ func (s *server) handlePlayerLogin(addr *net.UDPAddr, data string) {
 	name := parser.ParseLoginMessage(data)
 	newPlayerState, err := s.playerManager.CreatePlayer(addr, name)
 	if err != nil {
-		logger.log(LOG_LEVEL_WARNING, err.Error())
+		logger.warn(err.Error())
 		return
 	}
 
@@ -185,7 +192,7 @@ func (s *server) handlePlayerLogin(addr *net.UDPAddr, data string) {
 	// logger.log(LOG_LEVEL_DEBUG, "Player %d: Broadcast packet (%s)", newPlayerState.ID, packet)
 	s.broadcastPacket(existingPlayerAddrs, packet)
 
-	logger.log(LOG_LEVEL_INFO, "Player %d logged in: %s", newPlayerState.ID, newPlayerState.Name)
+	logger.info("Player %d logged in: %s", newPlayerState.ID, newPlayerState.Name)
 }
 
 func (s *server) SetBroadcastDelay(newDelayMs int) {

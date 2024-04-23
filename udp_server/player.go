@@ -55,3 +55,7 @@ func (ps *PlayerState) String() string {
 func (ps Position) String() string {
 	return fmt.Sprintf("%.3f,%.3f,%.3f", ps.x, ps.y, ps.z)
 }
+
+func (ps *PlayerState) ScoreString() string {
+	return fmt.Sprintf("%d:%d:%d", ps.ID, ps.Score, ps.Deaths)
+}

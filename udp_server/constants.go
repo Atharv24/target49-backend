@@ -8,16 +8,19 @@ const (
 	PLAYER_SHOT_MESSAGE = "H"
 
 	// L;{NAME} from client
-	PLAYER_LOGIN = "L"
+	PLAYER_LOGIN_MESSAGE = "L"
 
 	// I;{NEW_PLAYER_ID}:{NEW_POS}:{TIMESTAMP};{ID1}:{POS1}:{TIMESTAMP};{ID2}:{POS2}:{TIMESTAMP} from server to the new client
 	INITIAL_MESSAGE = "I"
 
 	// N;{NEW_PLAYER_ID}:{NEW_POS}:{TIMESTAMP} from server to all existing clients
-	NEW_PLAYER = "N"
+	NEW_PLAYER_MESSAGE = "N"
 
 	// R;{POS}:{HEALTH}
-	PLAYER_RESET = "R"
+	PLAYER_RESET_MESSAGE = "R"
+
+	// P;{ID1}:{SCORE}:{DEATHS};{ID2}:{SCORE}:{DEATHS}
+	POINTS_MESSAGE = "P"
 )
 
 const MAX_HEALTH = 5

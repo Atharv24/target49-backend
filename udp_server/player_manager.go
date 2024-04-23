@@ -86,56 +86,64 @@ func (pm *PlayerManager) HandlePlayerShot(receiverID int, shooterAddr *net.UDPAd
 		logger.warn("Unable to get Player %d state: %s", receiverID, err.Error())
 	}
 	if receieverState.Health > 1 {
-		newState := PlayerState{
-			ID:            receieverState.ID,
-			Addr:          receieverState.Addr,
-			Name:          receieverState.Name,
-			Health:        receieverState.Health - 1,
-			Rotation:      receieverState.Rotation,
-			Score:         receieverState.Score,
-			Deaths:        receieverState.Deaths,
-			Position:      receieverState.Position,
-			RespawnAt:     receieverState.RespawnAt,
-			LastUpdatedAt: lastUpdatedAt,
-		}
-		pm.players.Store(receieverAddr, newState)
-		return nil
+		HandlePlayerHealthLoss(receieverState, lastUpdatedAt, pm, receieverAddr)
 	} else {
 		// Handle player respawn
-		logger.info("Player %d died, respawning", receiverID)
-		newState := PlayerState{
-			ID:            receieverState.ID,
-			Addr:          receieverState.Addr,
-			Name:          receieverState.Name,
-			Health:        MAX_HEALTH,
-			Rotation:      0.0,
-			Score:         receieverState.Score,
-			Deaths:        receieverState.Deaths + 1,
-			Position:      RandomPosition(),
-			RespawnAt:     time.Now().UnixMilli(),
-			LastUpdatedAt: lastUpdatedAt,
-		}
-		pm.players.Store(receieverAddr, newState)
-
-		shooterState, err := pm.GetPlayerState(shooterAddr.String())
-		if err != nil {
-			logger.warn("Unable to get Client %s state: %s", shooterAddr.String(), err.Error())
-		}
-		newShooterState := PlayerState{
-			ID:            shooterState.ID,
-			Addr:          shooterState.Addr,
-			Name:          shooterState.Name,
-			Health:        shooterState.Health,
-			Rotation:      shooterState.Rotation,
-			Score:         shooterState.Score + 1,
-			Deaths:        shooterState.Deaths,
-			Position:      shooterState.Position,
-			RespawnAt:     shooterState.RespawnAt,
-			LastUpdatedAt: shooterState.LastUpdatedAt,
-		}
-		pm.players.Store(shooterAddr.String(), newShooterState)
+		HandlePlayerDeath(receiverID, receieverState, lastUpdatedAt, pm, receieverAddr, shooterAddr)
 		return receieverState.Addr
 	}
+	return nil
+}
+
+func HandlePlayerDeath(receiverID int, receieverState PlayerState, lastUpdatedAt int64, pm *PlayerManager, receieverAddr string, shooterAddr *net.UDPAddr) {
+	logger.info("Player %d died, respawning", receiverID)
+	newState := PlayerState{
+		ID:            receieverState.ID,
+		Addr:          receieverState.Addr,
+		Name:          receieverState.Name,
+		Health:        MAX_HEALTH,
+		Rotation:      0.0,
+		Score:         receieverState.Score,
+		Deaths:        receieverState.Deaths + 1,
+		Position:      RandomPosition(),
+		RespawnAt:     time.Now().UnixMilli(),
+		LastUpdatedAt: lastUpdatedAt,
+	}
+	pm.players.Store(receieverAddr, newState)
+
+	shooterState, err := pm.GetPlayerState(shooterAddr.String())
+	if err != nil {
+		logger.warn("Unable to get Client %s state: %s", shooterAddr.String(), err.Error())
+	}
+	newShooterState := PlayerState{
+		ID:            shooterState.ID,
+		Addr:          shooterState.Addr,
+		Name:          shooterState.Name,
+		Health:        shooterState.Health,
+		Rotation:      shooterState.Rotation,
+		Score:         shooterState.Score + 1,
+		Deaths:        shooterState.Deaths,
+		Position:      shooterState.Position,
+		RespawnAt:     shooterState.RespawnAt,
+		LastUpdatedAt: shooterState.LastUpdatedAt,
+	}
+	pm.players.Store(shooterAddr.String(), newShooterState)
+}
+
+func HandlePlayerHealthLoss(receieverState PlayerState, lastUpdatedAt int64, pm *PlayerManager, receieverAddr string) {
+	newState := PlayerState{
+		ID:            receieverState.ID,
+		Addr:          receieverState.Addr,
+		Name:          receieverState.Name,
+		Health:        receieverState.Health - 1,
+		Rotation:      receieverState.Rotation,
+		Score:         receieverState.Score,
+		Deaths:        receieverState.Deaths,
+		Position:      receieverState.Position,
+		RespawnAt:     receieverState.RespawnAt,
+		LastUpdatedAt: lastUpdatedAt,
+	}
+	pm.players.Store(receieverAddr, newState)
 }
 
 func (pm *PlayerManager) GetPlayerState(addrStr string) (PlayerState, error) {

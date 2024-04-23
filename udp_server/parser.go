@@ -75,9 +75,19 @@ func (p *Parser) EncodePlayerStatesForInit(
 func (p *Parser) EncodePlayerStateForInit(
 	newPlayerState PlayerState,
 ) string {
-	return fmt.Sprintf("%s;%s", NEW_PLAYER, newPlayerState.String())
+	return fmt.Sprintf("%s;%s", NEW_PLAYER_MESSAGE, newPlayerState.String())
 }
 
 func (p *Parser) EncodePlayerResetMessage() string {
-	return fmt.Sprintf("%s;%s:%.3f:%d", PLAYER_RESET, RandomPosition().String(), 0.0, MAX_HEALTH)
+	return fmt.Sprintf("%s;%s:%.3f:%d", PLAYER_RESET_MESSAGE, RandomPosition().String(), 0.0, MAX_HEALTH)
+}
+
+func (p *Parser) EncodePlayerScores(playerStates []PlayerState) string {
+	strBuilder := strings.Builder{}
+	strBuilder.WriteString(POINTS_MESSAGE)
+
+	for _, ps := range playerStates {
+		strBuilder.WriteString(fmt.Sprintf(";%s", ps.ScoreString()))
+	}
+	return strBuilder.String()
 }

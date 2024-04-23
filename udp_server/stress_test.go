@@ -36,7 +36,7 @@ func TestStressTest(t *testing.T) {
 
 			name := fmt.Sprintf("TEST %d", id)
 			// Send a login message
-			loginMessage := fmt.Sprintf("%s;%s", PLAYER_LOGIN, name)
+			loginMessage := fmt.Sprintf("%s;%s", PLAYER_LOGIN_MESSAGE, name)
 			_, err = conn.Write([]byte(loginMessage))
 			if err != nil {
 				t.Errorf("Failed to send login message: %v", err)
@@ -78,7 +78,7 @@ func TestStressTest(t *testing.T) {
 
 		name := "LISTENER"
 		// Send a login message
-		loginMessage := fmt.Sprintf("%s;%s", PLAYER_LOGIN, name)
+		loginMessage := fmt.Sprintf("%s;%s", PLAYER_LOGIN_MESSAGE, name)
 		_, err = conn.Write([]byte(loginMessage))
 		if err != nil {
 			t.Errorf("Failed to send login message: %v", err)

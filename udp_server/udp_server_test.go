@@ -51,7 +51,7 @@ func TestHandlePlayerLogin(t *testing.T) {
 
 	name := "Atharv"
 	// Send a login message
-	loginMessage := fmt.Sprintf("%s;%s", PLAYER_LOGIN, name)
+	loginMessage := fmt.Sprintf("%s;%s", PLAYER_LOGIN_MESSAGE, name)
 	_, err = conn.Write([]byte(loginMessage))
 	if err != nil {
 		t.Errorf("Failed to send login message: %v", err)
@@ -88,7 +88,7 @@ func TestHandleTwoPlayerLogin(t *testing.T) {
 
 	name := "Atthu"
 	// Send a login message
-	loginMessage := fmt.Sprintf("%s;%s", PLAYER_LOGIN, name)
+	loginMessage := fmt.Sprintf("%s;%s", PLAYER_LOGIN_MESSAGE, name)
 	_, err = conn.Write([]byte(loginMessage))
 	if err != nil {
 		t.Errorf("Failed to send login message: %v", err)
@@ -126,7 +126,7 @@ func TestHandleTwoPlayerLogin(t *testing.T) {
 
 	name2 := "Ath"
 	// Send a login message
-	loginMessage2 := fmt.Sprintf("%s;%s", PLAYER_LOGIN, name2)
+	loginMessage2 := fmt.Sprintf("%s;%s", PLAYER_LOGIN_MESSAGE, name2)
 	_, err = conn2.Write([]byte(loginMessage2))
 	if err != nil {
 		t.Errorf("Failed to send login message: %v", err)
@@ -179,7 +179,7 @@ func TestHandleTwoPlayerLogin(t *testing.T) {
 
 	chunks = strings.Split(actualResponse, ";")
 	assert.Equal(t, 2, len(chunks))
-	assert.Equal(t, NEW_PLAYER, chunks[0])
+	assert.Equal(t, NEW_PLAYER_MESSAGE, chunks[0])
 
 	moreChunks = strings.Split(chunks[1], ":")
 	assert.Equal(t, 3, len(moreChunks))
@@ -202,7 +202,7 @@ func TestBroadcasting(t *testing.T) {
 
 	// Send a login message
 	name := "Atthu"
-	loginMessage := fmt.Sprintf("%s;%s", PLAYER_LOGIN, name)
+	loginMessage := fmt.Sprintf("%s;%s", PLAYER_LOGIN_MESSAGE, name)
 	_, err = conn2.Write([]byte(loginMessage))
 	if err != nil {
 		t.Errorf("Failed to send login message: %v", err)
